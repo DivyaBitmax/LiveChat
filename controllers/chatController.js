@@ -1,50 +1,7 @@
-
-
 const Conversation = require('../models/conversation');
 const Message = require('../models/message');
 
 /* User sends message */
-// exports.sendUserMessage = async (req, res) => {
-//   try {
-//     const { userId, text, name, email, query } = req.body;
-//     if (!userId || !text) return res.status(400).json({ error: 'userId & text required' });
-
-//     let conversation = await Conversation.findOne({ userId, status: { $ne: 'closed' } });
-//     if (!conversation) {
-//       conversation = await Conversation.create({ userId });
-//     }
-
-//     const message = await Message.create({
-//       conversationId: conversation._id,
-//       sender: 'user',
-//       text,
-//       meta: { name, email, query }
-//     });
-
-//     conversation.lastMessageAt = new Date();
-//     await conversation.save();
-
-//     const payload = {
-//       _id: message._id,
-//       conversationId: conversation._id.toString(),
-//       sender: 'user',
-//       text: message.text,
-//       createdAt: message.createdAt
-//     };
-
-//     req.io.to(conversation._id.toString()).emit('receiveMessage', payload);
-
-//     res.json({
-//       success: true,
-//       conversationId: conversation._id,
-//       message: payload
-//     });
-//   } catch (e) {
-//     console.error(e);
-//     res.status(500).json({ error: e.message });
-//   }
-// };
-
 
 exports.sendUserMessage = async (req, res) => {
   try {
@@ -170,6 +127,28 @@ exports.listConversations = async (_req, res) => {
     const convos = await Conversation.find().sort({ lastMessageAt: -1 }).lean();
     res.json(convos);
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+
+
+
+exports.closeConversation = async (req, res) => {
+  try {
+    const { conversationId } = req.body;
+    if (!conversationId) return res.status(400).json({ error: 'conversationId required' });
+
+    const convo = await Conversation.findByIdAndUpdate(
+      conversationId,
+      { status: 'closed' },
+      { new: true }
+    );
+    if (!convo) return res.status(404).json({ error: 'Conversation not found' });
+
+    res.json({ success: true, conversation: convo });
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ error: e.message });
   }
 };
