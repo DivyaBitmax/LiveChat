@@ -25,6 +25,7 @@
 // app.use((req,res,next) => { req.io = io; next(); });
 
 // const chatRoutes = require('./routes/chatRoutes');
+// const { PORT } = require('./config/config');
 // app.use('/api/chat', chatRoutes);
 
 // io.on('connection', (socket) => {
@@ -42,68 +43,74 @@
 //   });
 // });
 
-// const PORT = process.env.PORT || 5000;
+
 // server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
 
+// server.js
+const express = require('express');
+const dotenv = require('dotenv');
+const cors = require('cors');
+const http = require('http');
+const connectDB = require('./config/db');
 
+dotenv.config(); // Load .env config
 
-const express = require("express");
-const mongoose = require("mongoose");
-const cors = require("cors");
-require("dotenv").config();
+connectDB(); // MongoDB connection
 
 const app = express();
-const PORT = process.env.PORT || 5000;
-
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => console.log("MongoDB connected"))
-.catch((err) => console.error("Mongo Error:", err));
+// Create HTTP server and bind socket.io to it
+const server = http.createServer(app);
 
-const chatSchema = new mongoose.Schema({
-  userId: String,
-  name: String,
-  email: String,
-  messages: [
-    {
-      sender: String, // "user" or "bot"
-      message: String,
-      timestamp: { type: Date, default: Date.now },
-    },
-  ],
-});
-
-const Chat = mongoose.model("Chat", chatSchema);
-
-app.post("/api/chat", async (req, res) => {
-  const { userId, message, name, email } = req.body;
-
-  let chat = await Chat.findOne({ userId });
-
-  if (!chat) {
-    chat = new Chat({
-      userId,
-      name: name || "",
-      email: email || "",
-      messages: [],
-    });
+const io = require('socket.io')(server, {
+  cors: {
+    origin: "*", // OR specify your frontend URL
+    methods: ["GET", "POST"]
   }
-
-  if (name && !chat.name) chat.name = name;
-  if (email && !chat.email) chat.email = email;
-
-  chat.messages.push({ sender: "user", message });
-  await chat.save();
-
-  return res.json({ success: true });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Make io accessible in all routes via req.io
+app.use((req, res, next) => {
+  req.io = io;
+  next();
 });
+
+// Import Routes
+const chatRoutes = require('./routes/chatRoutes');
+const { PORT } = require('./config/config');
+app.use('/api/chat', chatRoutes); // All chat APIs go here
+
+// Socket.io Events
+io.on('connection', (socket) => {
+  console.log('🔌 New client connected:', socket.id);
+
+  // Join conversation room
+  socket.on('joinConversation', (conversationId) => {
+    if (conversationId) {
+      socket.join(conversationId);
+      console.log(`👉 Socket ${socket.id} joined room ${conversationId}`);
+    }
+  });
+
+  // Handle message sending
+  socket.on('sendMessage', ({ conversationId, message }) => {
+    if (conversationId && message) {
+      console.log(`💬 Message received for ${conversationId}: ${message}`);
+      io.to(conversationId).emit('newMessage', {
+        conversationId,
+        message,
+      });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('❌ Client disconnected:', socket.id);
+  });
+});
+
+// Start server
+
+server.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
