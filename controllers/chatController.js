@@ -2,7 +2,6 @@ const Conversation = require('../models/conversation');
 const Message = require('../models/message');
 
 /* User sends message */
-
 exports.sendUserMessage = async (req, res) => {
   try {
     const {
@@ -130,7 +129,6 @@ exports.listConversations = async (_req, res) => {
     res.status(500).json({ error: e.message });
   }
 };
-
 
 
 

@@ -9,7 +9,6 @@ const {
 } = require('../controllers/chatController');
 
 const router = express.Router();
-
 router.post('/send', sendUserMessage);
 router.post('/agent/reply', sendAgentReply);
 router.get('/messages/:conversationId', getMessages);
