@@ -102,6 +102,7 @@ io.on('connection', (socket) => {
       io.to(conversationId).emit('newMessage', {
         conversationId,
         message,
+           sender, // CRM ya USER
       });
     }
   });
